@@ -18,23 +18,56 @@ class RedditService:
             username=self.__username,
             password=self.__password,
         )
+        self.__hard_limit = 100
 
     def get_post_comments(self, url):
         if not self.reddit_client:
-            return {}
-        post = self.reddit_client.submission(url=url)
+            return []
+
         res = []
+        post = self.reddit_client.submission(url=url)
         comments = post.comments
         comments.replace_more(limit=None)
         for comment in comments:
             res.append({"content": comment.body, "score": comment.score})
         return res
-            
+
+    def get_relevant_posts(self, subreddits,sort_by="hot",limit=25):
+        if not subreddits:
+            return []
+
+        res = []
+        subreddits = "+".join(subreddits)
+        if limit >= self.__hard_limit:
+            limit = self.__hard_limit 
+        match sort_by:
+            case "hot":
+                submissions = self.reddit_client.subreddit(subreddits).hot(limit=limit)
+            case "latest":
+                submissions = self.reddit_client.subreddit(subreddits).new(limit=limit)
+            case _:
+                submission = None
+        
+        for submission in submissions:
+            res.append(
+                {
+                    "title": submission.title,
+                    "contents": submission.selftext,
+                    "comment_count": submission.num_comments,
+                    "submission_score": submission.score,
+                }
+            )
+        return res
+
 
 if __name__ == "__main__":
-    redit_service = RedditService()
+    reddit_service = RedditService()
     url = "https://www.reddit.com/r/askSingapore/comments/158yje8/what_business_can_i_start_without_any_money/"
     url = "https://www.reddit.com/r/SaaS/comments/1gvbmin/dont_start_a_saas_if_you_want_to_make_money/"
-    comments = redit_service.get_post_comments(url)
+    comments = reddit_service.get_post_comments(url)
     for comment in comments:
         print(comment)
+
+    submissions = reddit_service.get_relevant_posts(["SaaS"],"latest",5)
+    for submission in submissions:
+        print(submission)
